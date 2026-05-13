@@ -1,40 +1,40 @@
-name: Courses Periodic Update
+name: Run semester update
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
   schedule:
-    - cron: '0 8 * * *'
+    - cron: '0 9 * * *'
+
+concurrency: run
 
 jobs:
-  update:
+  run:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          submodules: true
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
-      - name: Install Intermediate Certificates
+          python-version: '3.x'
+      - name: Install Python dependencies
         run: |
-          openssl s_client -showcerts -servername students.technion.ac.il -connect students.technion.ac.il:443 | sed -n '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' > ~/technion.crt
-          sudo mv ~/technion.crt /usr/local/share/ca-certificates/
-          sudo update-ca-certificates
-      - name: Run Periodic Update
-        run: bash deploy.sh
-        env:
-          MOODLE_SESSIONSTUDENTSPROD: ${{ secrets.MOODLE_SESSIONSTUDENTSPROD }}
-          COURSE_INFO_FETCHER_PROXY: ${{ secrets.COURSE_INFO_FETCHER_PROXY }}
-          COURSE_INFO_FETCHER_PROXY_URL: ${{ secrets.COURSE_INFO_FETCHER_PROXY_URL }}
-          COURSE_INFO_FETCHER_PROXY_AUTH: ${{ secrets.COURSE_INFO_FETCHER_PROXY_AUTH }}
-      - name: Deploy
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./deploy
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
+          python -m pip install --upgrade pip
+          pip install requests
+      - name: Run semester update
+        run: python -u ./ci/semester_update.py
+      - name: Commit and push files
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add .
+          git diff-index --quiet --cached HEAD || git commit -m "Update semesters"
+          git push
+
+  workflow-keepalive:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: liskin/gh-workflow-keepalive@v1
