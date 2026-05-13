@@ -559,6 +559,7 @@ var CourseCalendar = (function () {
         return {
             id: eventId,
             title: eventTitle,
+            className: 'custom-event',
             start: start,
             end: end,
             backgroundColor: courseCalendar.colorGenerator(eventTitle),
